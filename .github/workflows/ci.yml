@@ -1,0 +1,76 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: python -m pip install pyyaml
+
+      - name: Syntax check
+        run: python -m py_compile scripts/skill_zh.py
+
+      - name: CLI help
+        run: python scripts/skill_zh.py --help
+
+      - name: Fixture smoke test (init/check/merge/index/apply/verify/revert)
+        run: |
+          set -euo pipefail
+          export HOME="$(mktemp -d)"
+          export DSH_HOME="$HOME/.dsh"
+          export DSH_AGENTS_HOME="$HOME/.agents"
+          export DSH_BUNDLED_SKILL_DIR="$HOME/empty-bundled"
+          mkdir -p "$DSH_AGENTS_HOME/skills" "$DSH_BUNDLED_SKILL_DIR" "$HOME/skills/demo-skill"
+          cat > "$HOME/skills/demo-skill/SKILL.md" <<'EOF'
+          ---
+          name: demo-skill
+          description: A demo skill for CI. Use for smoke testing.
+          ---
+          # Demo
+          EOF
+          python scripts/skill_zh.py --extra-root "$HOME/skills" init --split 1
+          test -f "$HOME/.skills-zh/translations/pending-part-a.json"
+          python - <<'PY'
+          import json, os, pathlib
+          home = pathlib.Path(os.environ["HOME"])
+          pending = json.loads((home / ".skills-zh/translations/pending-part-a.json").read_text())
+          entries = [
+              {
+                  "name": e["name"],
+                  "zh": {
+                      "label": "演示技能 · CI 冒烟",
+                      "keywords": ["演示", "冒烟测试"],
+                      "summary": "用于 CI 冒烟测试的示例技能。",
+                      "category": "综合工具与效率",
+                  },
+              }
+              for e in pending["entries"]
+          ]
+          (home / ".skills-zh/translations/part-a.zh.json").write_text(
+              json.dumps({"entries": entries}, ensure_ascii=False), encoding="utf-8"
+          )
+          PY
+          python scripts/skill_zh.py check --strict "$HOME/.skills-zh/translations/part-a.zh.json"
+          python scripts/skill_zh.py merge "$HOME/.skills-zh/translations/part-a.zh.json"
+          python scripts/skill_zh.py index
+          python scripts/skill_zh.py apply
+          python scripts/skill_zh.py verify
+          grep -q '【演示技能 · CI 冒烟】' "$HOME/skills/demo-skill/SKILL.md"
+          python scripts/skill_zh.py revert
+          ! grep -q '【演示技能' "$HOME/skills/demo-skill/SKILL.md"
+          echo "smoke test passed"

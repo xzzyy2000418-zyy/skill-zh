@@ -1,0 +1,32 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build skill zip
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          git archive --format=zip --prefix="skill-zh/" \
+            -o "dist/skill-zh-${VERSION}.zip" HEAD
+          (cd dist && sha256sum "skill-zh-${VERSION}.zip" > "skill-zh-${VERSION}.zip.sha256")
+          cat "dist/skill-zh-${VERSION}.zip.sha256"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

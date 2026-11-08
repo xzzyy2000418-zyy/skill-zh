@@ -1,0 +1,6 @@
+# Release zip 只保留技能运行所需文件
+.github/ export-ignore
+.gitignore export-ignore
+.gitattributes export-ignore
+CHANGELOG.md export-ignore
+install.sh export-ignore

@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 本地构建产物（Release 由 GitHub Actions 生成，不提交 zip）
+dist/
+*.zip
+
+# 编辑器/IDE
+.idea/
+.vscode/
+*.swp
+
+# skill-zh 运行状态（每台机器各自一份，绝不入库）
+.skills-zh/
