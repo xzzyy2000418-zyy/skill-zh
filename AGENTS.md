@@ -66,7 +66,7 @@ python scripts/skill_zh.py --extra-root "$TMP/skills" init --split 1
 
 ## 发布流程
 
-1. 修改 `scripts/skill_zh.py` 时同步更新 `TOOL_VERSION`（当前 `1.0.0`）与 `CHANGELOG.md`。
+1. 修改 `scripts/skill_zh.py` 时同步更新 `TOOL_VERSION` 与 `CHANGELOG.md`。
 2. 本地验证通过后：`git commit` → `git tag -a vX.Y.Z -m "skill-zh X.Y.Z"`。
 3. `git push origin main vX.Y.Z`；`release.yml` 会自动构建 `skill-zh-X.Y.Z.zip` 并发布 Release。
 4. 打 tag 前请确认 CI 在 `main` 上是绿的。

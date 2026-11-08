@@ -23,7 +23,7 @@ jobs:
         run: python -m pip install pyyaml
 
       - name: Syntax check
-        run: python -m py_compile scripts/skill_zh.py
+        run: python -m py_compile scripts/skill_zh.py scripts/codex_preview.py
 
       - name: CLI help
         run: python scripts/skill_zh.py --help
@@ -68,6 +68,19 @@ jobs:
           python scripts/skill_zh.py check --strict "$HOME/.skills-zh/translations/part-a.zh.json"
           python scripts/skill_zh.py merge "$HOME/.skills-zh/translations/part-a.zh.json"
           python scripts/skill_zh.py index
+          python - <<'PY'
+          import json, subprocess, sys
+          request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+                     "params": {"name": "open_skill_catalog", "arguments": {}}}
+          response = subprocess.check_output(
+              [sys.executable, "-B", "scripts/codex_preview.py"],
+              input=json.dumps(request) + "\n", text=True,
+          )
+          result = json.loads(response)["result"]
+          entry = next(item for item in result["_meta"]["catalog"]["skills"] if item["name"] == "demo-skill")
+          assert entry["label"] == "演示技能 · CI 冒烟"
+          assert "path" not in entry and "演示技能" not in result["content"][0]["text"]
+          PY
           python scripts/skill_zh.py apply
           python scripts/skill_zh.py verify
           grep -q '【演示技能 · CI 冒烟】' "$HOME/skills/demo-skill/SKILL.md"

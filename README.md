@@ -1,8 +1,7 @@
 # 技能汉化管家 · skill-zh
 
-> 给 [DeepSeek Harness](https://github.com/deepseek-ai) 的通用技能汉化工具：
-> 安装到任意一台电脑后，扫描**该机器**上已安装或下载的所有 skill，生成中文名、中文关键词
-> 和一句话说明，写回技能描述，并生成一份中文技能目录，让中文提问能精准命中技能。
+> 本机技能汉化工具。为已安装的技能补充中文名、关键词和一句话说明，并生成中文技能目录。
+> 支持两种入口：适用于兼容 `SKILL.md` 的本地 Agent 的通用技能，以及可浏览目录的 Codex 桌面插件。
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -28,9 +27,11 @@
 
 之后直接说「帮我做分子对接」「把论文转成 PPT」「跑个单细胞聚类」即可命中技能。
 
-## 安装
+## 通用技能安装
 
-需要 DSH、Python 3.8+、[PyYAML](https://pypi.org/project/PyYAML/)。
+需要支持加载 `SKILL.md`、读写本地文件和运行脚本的 Agent，以及 Python 3.8+ 和
+[PyYAML](https://pypi.org/project/PyYAML/)。默认用 `~/.agents/skills`，其他宿主可将
+`skill-zh` 放到它自己的技能目录，或运行 `./install.sh <宿主的技能根目录>`。
 
 **方式一：git clone（推荐，可 `git pull` 更新）**
 
@@ -51,7 +52,23 @@ unzip skill-zh-<version>.zip -d ~/.agents/skills/
 python3 -m pip install pyyaml
 ```
 
-装好后 DSH 会自动发现新技能，无需重启。
+安装后在 Agent 的技能列表里查找 `skill-zh`，或直接说「把本机技能整理成中文目录」。
+扫描默认覆盖 DSH 和共享的 `.agents/skills`。宿主使用其他目录时，可用
+`--extra-root <技能根目录>` 加到 `init` 或 `scan` 前面。是否自动加载、何时重载由宿主决定。
+
+## Codex 桌面插件安装与预览
+
+1. 下载并解压同一份 Release 包，或克隆仓库。在 Codex 中把含 `.agents/plugins/marketplace.json` 的文件夹打开为本地项目。
+2. 进入「插件」，选择来源「技能汉化管家」，安装同名插件。若来源没有出现，重启桌面端。也可以一次性运行 `codex plugin marketplace add /path/to/skill-zh`，让其他本地项目也能发现这个来源。
+3. 安装后，在支持插件全局入口的桌面端，从侧栏打开「中文技能目录」。也可以在插件详情页点击「打开技能汉化管家的中文技能目录预览」示例请求，按桌面端提示在本地聊天打开面板。
+
+目录支持中文名、英文 ID、关键词搜索及分类筛选。点击「刷新目录」会重新读取本机索引和技能说明。
+插件使用已有的 `~/.skills-zh/index.json`，并在有 PyYAML 时补充扫描常见的本机技能目录。
+首次打开时，已带中文标签的技能会显示该标签，其余会显示原说明。生成中文译文后，再刷新即可查看。
+Codex 插件缓存中的技能只有在已生成的索引里收录时才会出现在目录。安装桌面插件不要求先安装通用技能。
+
+预览需要桌面端能运行 `python3`。在新机器上直接扫描技能前，请先安装 PyYAML。如果客户端只返回文本，使用插件示例请求后可让它导出离线 HTML。
+在 Windows 上，如果 Python 命令是 `python`，安装前将本地包 `mcp.json` 中的 `command` 改为 `python`。
 
 ## 快速开始
 
@@ -150,12 +167,17 @@ DSH 生成模型技能目录时**只看 `name` 和截断后的 `description`**�
 
 ```text
 skill-zh/                      # 仓库根目录 = 可直接放进 ~/.agents/skills/skill-zh
-├── SKILL.md                   # DSH 技能入口（加载时读取）
+├── SKILL.md                   # 通用技能入口
+├── .agents/plugins/marketplace.json # Codex 本地插件来源
+├── plugin.json               # Codex 插件详情
+├── mcp.json                  # 桌面目录服务配置
+├── preview/catalog.html     # 可搜索的目录面板
+├── skills/skill-zh-preview/  # Codex 目录入口
 ├── README.md                  # 本文件
 ├── LICENSE
 ├── CHANGELOG.md
 ├── install.sh                 # 可选的本地安装脚本
-├── scripts/skill_zh.py        # 全部命令（Python 3 + PyYAML）
+├── scripts/                   # 通用汉化命令与桌面预览服务
 ├── references/
 │   ├── translation-spec.md    # 译文规格（label/keywords/summary/category）
 │   ├── translation-prompt.md  # 翻译子代理提示词模板

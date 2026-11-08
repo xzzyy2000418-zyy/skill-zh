@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>中文技能目录</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --ink: light-dark(#172e2a, #e3eee9);
+    --muted: light-dark(#49645c, #a8bbb3);
+    --paper: light-dark(#f4f7f3, #151e1b);
+    --surface: light-dark(#fff, #1d2b26);
+    --line: light-dark(#d2e0d9, #3e554b);
+    --accent: light-dark(#176554, #a7e3cf);
+    --tint: light-dark(#e3f2eb, #283f35);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: clamp(16px, 4vw, 40px);
+    background: var(--paper);
+    color: var(--ink);
+    font: 15px/1.55 system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  main { max-width: 1060px; margin: auto; }
+  header {
+    padding: clamp(20px, 4vw, 38px);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--tint), var(--surface) 80%);
+  }
+  .eyebrow { margin: 0; font-size: 13px; font-weight: 650; color: var(--accent); }
+  h1 { margin: 5px 0 8px; font-size: clamp(26px, 5vw, 38px); line-height: 1.2; }
+  header p:last-child { margin-bottom: 0; color: var(--muted); }
+  .filters {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 200px) auto;
+    gap: 10px; align-items: end; margin-top: 22px;
+  }
+  label { display: grid; gap: 5px; font-size: 13px; color: var(--muted); }
+  input, select, button {
+    min-width: 0; min-height: 44px; border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 12px; font: inherit; color: var(--ink);
+    background: var(--surface);
+  }
+  button { cursor: pointer; color: var(--accent); }
+  button:disabled { cursor: wait; opacity: .65; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #count, #notice { color: var(--muted); font-size: 13px; }
+  #notice:empty { display: none; }
+  #skills {
+    list-style: none; margin: 0; padding: 0; display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 285px), 1fr)); gap: 12px;
+  }
+  #skills > li {
+    min-width: 0; padding: 16px; border: 1px solid var(--line);
+    border-radius: 14px; background: var(--surface); overflow-wrap: anywhere;
+  }
+  h2 { font-size: 17px; margin: 4px 0 2px; }
+  code { font-size: 12px; color: var(--muted); user-select: all; }
+  .tag { color: var(--accent); font-size: 12px; font-weight: 600; }
+  .keywords { margin: 0; color: var(--muted); font-size: 12px; }
+  @media (max-width: 620px) {
+    .filters { grid-template-columns: minmax(0, 1fr) auto; }
+    .filters label:first-child { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">技能汉化管家 · 本机目录</p>
+    <h1>中文技能目录</h1>
+    <p>用中文名、英文 ID 或关键词查找技能。</p>
+  </header>
+  <div class="filters" role="search">
+    <label>搜索技能 <input id="query" type="search" placeholder="例如 文献检索、PDF" autocomplete="off"></label>
+    <label>技能分类 <select id="category"><option value="">全部分类</option></select></label>
+    <button id="refresh" type="button" hidden>刷新目录</button>
+  </div>
+  <p id="count" role="status">正在读取本机技能…</p>
+  <p id="notice" role="status"></p>
+  <ul id="skills" aria-label="技能列表"></ul>
+</main>
+<script type="application/json" id="snapshot"></script>
+<script>
+(() => {
+  const byId = id => document.getElementById(id);
+  const query = byId("query");
+  const category = byId("category");
+  const refresh = byId("refresh");
+  let skills = [];
+  let receivedCatalog = false;
+
+  function element(tag, value, className) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = value;
+    return node;
+  }
+
+  function render() {
+    const terms = query.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    const selected = category.value;
+    const matches = skills.filter(skill => {
+      const haystack = [skill.name, skill.label, skill.summary, skill.category, ...skill.keywords]
+        .join(" ").toLocaleLowerCase();
+      return (!selected || skill.category === selected) && terms.every(term => haystack.includes(term));
+    });
+    byId("count").textContent = matches.length
+      ? `显示 ${matches.length} 个技能 · 共 ${skills.length} 个`
+      : (skills.length ? "没有匹配的技能。" : "暂时没有可显示的技能。");
+    const rows = document.createDocumentFragment();
+    for (const skill of matches) {
+      const row = element("li", "");
+      row.append(
+        element("span", [skill.category, skill.status].filter(Boolean).join(" · "), "tag"),
+        element("h2", skill.label || skill.name),
+      );
+      if (skill.label) row.append(element("code", skill.name));
+      if (skill.summary) row.append(element("p", skill.summary));
+      if (skill.keywords.length) row.append(element("p", skill.keywords.join(" · "), "keywords"));
+      rows.append(row);
+    }
+    byId("skills").replaceChildren(rows);
+  }
+
+  function load(catalog) {
+    if (!Array.isArray(catalog?.skills)) return false;
+    receivedCatalog = true;
+    skills = catalog.skills.map(skill => ({
+      ...skill,
+      keywords: Array.isArray(skill.keywords) ? skill.keywords : [],
+    }));
+    const selected = category.value;
+    const categories = [...new Set(skills.map(skill => skill.category))]
+      .sort((a, b) => a.localeCompare(b, "zh-Hans"));
+    category.replaceChildren(new Option("全部分类", ""), ...categories.map(item => new Option(item, item)));
+    if (categories.includes(selected)) category.value = selected;
+    byId("notice").textContent = catalog.notice || "";
+    render();
+    return true;
+  }
+
+  query.addEventListener("input", render);
+  category.addEventListener("change", render);
+  const snapshot = byId("snapshot").textContent;
+  if (snapshot) {
+    load(JSON.parse(snapshot));
+    return;
+  }
+
+  const pending = new Map();
+  let nextId = 0;
+  function send(message) {
+    window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+  }
+  function request(method, params) {
+    return new Promise((resolve, reject) => {
+      const id = ++nextId;
+      const timeout = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error("连接超时"));
+      }, 12000);
+      pending.set(id, reply => {
+        clearTimeout(timeout);
+        if (reply.error) reject(new Error("读取失败"));
+        else resolve(reply.result);
+      });
+      send({ id, method, params });
+    });
+  }
+  function loadResult(result) {
+    return load(result?._meta?.catalog);
+  }
+  window.addEventListener("message", ({ source, data }) => {
+    if (source !== window.parent || data?.jsonrpc !== "2.0") return;
+    if (data.method === "ui/notifications/tool-result") {
+      loadResult(data.params);
+    } else if (pending.has(data.id)) {
+      const settle = pending.get(data.id);
+      pending.delete(data.id);
+      settle(data);
+    }
+  });
+
+  async function fetchCatalog() {
+    refresh.disabled = true;
+    try {
+      const result = await request("tools/call", { name: "open_skill_catalog", arguments: {} });
+      if (!loadResult(result)) throw new Error("目录不可用");
+    } catch {
+      if (!skills.length) render();
+      byId("notice").textContent = "无法读取本机目录。可点击刷新重试。";
+    } finally {
+      refresh.disabled = false;
+    }
+  }
+
+  async function connect() {
+    try {
+      await request("ui/initialize", {
+        appInfo: { name: "skill-zh-catalog", version: "1.1.0" },
+        appCapabilities: {},
+        protocolVersion: "2026-01-26",
+      });
+      send({ method: "ui/notifications/initialized" });
+      refresh.hidden = false;
+      refresh.addEventListener("click", fetchCatalog);
+      if (!receivedCatalog) await fetchCatalog();
+    } catch {
+      if (!skills.length) render();
+      byId("notice").textContent = "当前窗口无法连接本机目录。请从 Codex 插件入口打开，或使用导出的离线目录。";
+    }
+  }
+
+  if (window.parent === window) {
+    render();
+    byId("notice").textContent = "请从 Codex 插件入口打开，或使用导出的离线目录。";
+  } else {
+    connect();
+  }
+})();
+</script>
+</body>
+</html>
